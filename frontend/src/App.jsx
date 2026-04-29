@@ -15,7 +15,7 @@ const CAT_COLORS = {
   other: "#888780",
 };
 
-const fmt = (amount) => `₹${(amount / 100).toFixed(2)}`;
+const fmt = (amount) => `₹${Number(amount || 0).toFixed(2)}`;
 const fmtDate = (raw) => {
   if (!raw) return "";
   const d = new Date(raw);
@@ -462,19 +462,22 @@ export default function App() {
     setPage(1);
   };
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const now = new Date();
+  const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
   const monthlyTotal = expenses.reduce((sum, e) => {
     const d = new Date(e.date);
     return d.getMonth() === now.getMonth() &&
       d.getFullYear() === now.getFullYear()
-      ? sum + e.amount
+      ? sum + Number(e.amount || 0)
       : sum;
   }, 0);
+  const now = new Date();
+
   const avgExpense = expenses.length ? Math.round(total / expenses.length) : 0;
 
   const catTotals = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
+    const amt = Number(e.amount || 0);
+    acc[e.category] = (acc[e.category] || 0) + amt;
     return acc;
   }, {});
   const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
@@ -603,12 +606,37 @@ export default function App() {
                   <span style={s.secBar("#2d6a4f")} />
                   By category
                 </div>
-                <div style={{ background: "#f5f3ef", border: "0.5px solid #e8e4db", borderRadius: "10px", overflow: "hidden" }}>
+                <div
+                  style={{
+                    background: "#f5f3ef",
+                    border: "0.5px solid #e8e4db",
+                    borderRadius: "10px",
+                    overflow: "hidden",
+                  }}
+                >
                   {sortedCats.map(([cat, amt], i) => (
-                    <div key={cat} style={{ ...s.bkRow, ...(i === sortedCats.length - 1 ? { borderBottom: "none" } : {}) }}>
-                      <div style={s.bkCat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+                    <div
+                      key={cat}
+                      style={{
+                        ...s.bkRow,
+                        ...(i === sortedCats.length - 1
+                          ? { borderBottom: "none" }
+                          : {}),
+                      }}
+                    >
+                      <div style={s.bkCat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </div>
                       <div style={s.barWrap}>
-                        <div style={{ height: "100%", borderRadius: "2px", width: `${Math.round((amt / maxCat) * 100)}%`, background: CAT_COLORS[cat] || "#888780", transition: "width 0.4s ease" }} />
+                        <div
+                          style={{
+                            height: "100%",
+                            borderRadius: "2px",
+                            width: `${Math.round((amt / maxCat) * 100)}%`,
+                            background: CAT_COLORS[cat] || "#888780",
+                            transition: "width 0.4s ease",
+                          }}
+                        />
                       </div>
                       <div style={s.bkAmt}>{fmt(amt)}</div>
                     </div>
