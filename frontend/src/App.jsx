@@ -464,6 +464,8 @@ export default function App() {
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
+  const now = new Date();
+
   const monthlyTotal = expenses.reduce((sum, e) => {
     const d = new Date(e.date);
     return d.getMonth() === now.getMonth() &&
@@ -471,7 +473,6 @@ export default function App() {
       ? sum + Number(e.amount || 0)
       : sum;
   }, 0);
-  const now = new Date();
 
   const avgExpense = expenses.length ? Math.round(total / expenses.length) : 0;
 
