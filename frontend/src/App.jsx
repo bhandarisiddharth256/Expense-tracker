@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useExpenses } from "./hooks/useExpenses";
 import ExpenseForm from "./components/ExpenseForm";
 import { CATEGORIES } from "./constants/categories";
@@ -11,232 +11,818 @@ const CAT_COLORS = {
   health: "#2d6a4f",
   entertainment: "#534ab7",
   travel: "#185fa5",
+  gym: "#185fa5",
   other: "#888780",
 };
 
 const fmt = (amount) => `₹${(amount / 100).toFixed(2)}`;
-
-// Formats "2026-04-28T18:30:00.000Z" or "2026-04-28" → "28 Apr 2026"
 const fmtDate = (raw) => {
   if (!raw) return "";
   const d = new Date(raw);
-  if (isNaN(d)) return raw;
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return isNaN(d)
+    ? raw
+    : d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 };
 
+const PAGE_SIZE = 5;
+
 const s = {
-  shell: {
-    maxWidth: "680px",
-    margin: "0 auto",
-    padding: "2rem 1.5rem 4rem",
+  fullWidthSection: {
+    width: "100%",
+    padding: "1.5rem 1.75rem",
+  },
+
+  page: {
     fontFamily: "'DM Sans', sans-serif",
-    background: "#faf9f6",
+    background: "#f5f3ef",
     minHeight: "100vh",
     color: "#1a1814",
   },
-  header: {
+  topbar: {
+    background: "#ffffff",
+    borderBottom: "0.5px solid #e8e4db",
+    padding: "0 2rem",
     display: "flex",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "2.5rem",
-    paddingBottom: "1.5rem",
-    borderBottom: "1px solid #e8e4db",
+    height: "56px",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
   },
-  h1: {
+  topbarLeft: { display: "flex", alignItems: "baseline", gap: "12px" },
+  logo: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: "28px",
+    fontSize: "18px",
     fontWeight: 600,
-    letterSpacing: "-0.5px",
     color: "#1a1814",
     margin: 0,
   },
-  headerSub: { fontSize: "11px", color: "#8a867a", marginTop: "3px", letterSpacing: "0.5px", textTransform: "uppercase" },
-  headerDate: { fontFamily: "'DM Mono', monospace", fontSize: "11px", color: "#8a867a", textAlign: "right", lineHeight: 1.7 },
-  stats: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", marginBottom: "2rem" },
-  statCard: { background: "#ffffff", border: "0.5px solid #e8e4db", borderRadius: "12px", padding: "1rem 1.25rem" },
-  statLabel: { fontSize: "10px", letterSpacing: "1px", textTransform: "uppercase", color: "#8a867a", marginBottom: "6px" },
-  statValue: { fontFamily: "'DM Mono', monospace", fontSize: "20px", fontWeight: 500, color: "#1a1814", letterSpacing: "-0.5px" },
-  statValueAccent: { fontFamily: "'DM Mono', monospace", fontSize: "20px", fontWeight: 500, color: "#c4611a", letterSpacing: "-0.5px" },
-  statSub: { fontSize: "11px", color: "#8a867a", marginTop: "4px" },
-  sectionTitle: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 500, color: "#4a473f" },
-  sectionBar: (color) => ({ display: "block", width: "3px", height: "14px", background: color, borderRadius: "2px", flexShrink: 0 }),
-  filtersCard: { background: "#ffffff", border: "0.5px solid #e8e4db", borderRadius: "12px", padding: "1rem 1.25rem", marginBottom: "1.75rem" },
-  filtersRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" },
-  filterGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  filterLabel: { fontSize: "10px", letterSpacing: "0.8px", textTransform: "uppercase", color: "#8a867a", fontWeight: 500 },
-  select: {
-    fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#1a1814",
-    background: "#faf9f6", border: "0.5px solid #e8e4db", borderRadius: "8px",
-    padding: "9px 36px 9px 12px", outline: "none", cursor: "pointer", width: "100%",
-    appearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a867a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-    backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", boxSizing: "border-box",
+  logoSub: {
+    fontSize: "10px",
+    letterSpacing: "1.2px",
+    textTransform: "uppercase",
+    color: "#8a867a",
   },
-  listCard: { background: "#ffffff", border: "0.5px solid #e8e4db", borderRadius: "16px", overflow: "hidden", marginBottom: "1.5rem" },
-  listHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem", borderBottom: "0.5px solid #e8e4db" },
-  countBadge: { fontFamily: "'DM Mono', monospace", fontSize: "11px", background: "#faf9f6", border: "0.5px solid #e8e4db", color: "#8a867a", padding: "2px 10px", borderRadius: "20px" },
-  expenseRow: { display: "grid", gridTemplateColumns: "20px 1fr auto", gap: "14px", alignItems: "center", padding: "14px 1.25rem", borderBottom: "0.5px solid #e8e4db" },
-  catDot: (cat) => ({ width: "8px", height: "8px", borderRadius: "50%", background: CAT_COLORS[cat] || "#888780", justifySelf: "center" }),
-  expDesc: { fontSize: "14px", color: "#1a1814", fontWeight: 400, marginBottom: "3px" },
-  expMeta: { display: "flex", gap: "10px", fontSize: "11px", color: "#8a867a", alignItems: "center" },
-  expCat: { textTransform: "capitalize", background: "#f3f1ec", padding: "1px 7px", borderRadius: "4px", fontSize: "10px", letterSpacing: "0.3px", fontWeight: 500, color: "#4a473f" },
-  expAmount: { fontFamily: "'DM Mono', monospace", fontSize: "14px", fontWeight: 500, color: "#1a1814", whiteSpace: "nowrap" },
-  empty: { padding: "2.5rem", textAlign: "center", color: "#8a867a", fontSize: "13px" },
-  loading: { padding: "2rem", textAlign: "center", color: "#8a867a", fontSize: "13px" },
-  errorBox: { padding: "0.75rem 1rem", background: "#fcebeb", border: "0.5px solid #f09595", borderRadius: "8px", color: "#a32d2d", fontSize: "13px", marginBottom: "1rem" },
-  breakdownCard: { background: "#ffffff", border: "0.5px solid #e8e4db", borderRadius: "16px", overflow: "hidden", marginBottom: "1.5rem" },
-  breakdownHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem", borderBottom: "0.5px solid #e8e4db" },
-  breakdownRow: { display: "flex", alignItems: "center", gap: "12px", padding: "11px 1.25rem", borderBottom: "0.5px solid #e8e4db" },
-  breakdownCat: { fontSize: "13px", color: "#1a1814", textTransform: "capitalize", width: "100px", flexShrink: 0 },
-  barWrap: { flex: 1, height: "4px", background: "#f0ece4", borderRadius: "2px", overflow: "hidden" },
-  breakdownAmt: { fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "#4a473f", width: "80px", textAlign: "right", flexShrink: 0 },
-  dateCard: { background: "#ffffff", border: "0.5px solid #e8e4db", borderRadius: "16px", padding: "1.25rem" },
-  dateRow: { display: "flex", alignItems: "center", gap: "12px", marginTop: "1rem", flexWrap: "wrap" },
-  dateInput: { fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#1a1814", background: "#faf9f6", border: "0.5px solid #e8e4db", borderRadius: "8px", padding: "9px 12px", outline: "none", flex: 1, minWidth: "160px" },
-  dailyResult: { fontFamily: "'DM Mono', monospace", fontSize: "20px", fontWeight: 500, color: "#c4611a" },
+  topbarDate: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "11px",
+    color: "#8a867a",
+  },
+  body: { display: "flex", minHeight: "calc(100vh - 56px)" },
+
+  // Sidebar
+  sidebar: {
+    width: "300px",
+    flexShrink: 0,
+    background: "#ffffff",
+    borderRight: "0.5px solid #e8e4db",
+    padding: "1.5rem",
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.25rem",
+    overflowY: "auto",
+  },
+
+  // Content
+  content: {
+    flex: 1,
+    padding: "1.5rem 1.75rem",
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.25rem",
+    minWidth: 0,
+    maxWidth: "1200px",
+    margin: "0 auto",
+    width: "100%",
+  },
+
+  // Stats
+  statsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+    gap: "10px",
+  },
+  statCard: {
+    background: "#ffffff",
+    border: "0.5px solid #e8e4db",
+    borderRadius: "12px",
+    padding: "0.875rem 1rem",
+  },
+  statLabel: {
+    fontSize: "9px",
+    letterSpacing: "1px",
+    textTransform: "uppercase",
+    color: "#8a867a",
+    marginBottom: "5px",
+  },
+  statValue: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "17px",
+    fontWeight: 500,
+    color: "#1a1814",
+    letterSpacing: "-0.5px",
+  },
+  statValueAccent: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "17px",
+    fontWeight: 500,
+    color: "#c4611a",
+    letterSpacing: "-0.5px",
+  },
+  statSub: { fontSize: "10px", color: "#8a867a", marginTop: "3px" },
+
+  // Card
+  card: {
+    background: "#ffffff",
+    border: "0.5px solid #e8e4db",
+    borderRadius: "14px",
+    overflow: "hidden",
+  },
+  cardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0.75rem 1.25rem",
+    borderBottom: "0.5px solid #e8e4db",
+  },
+  cardTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    fontSize: "12px",
+    fontWeight: 500,
+    color: "#4a473f",
+  },
+  accentBar: (color) => ({
+    display: "block",
+    width: "3px",
+    height: "13px",
+    background: color,
+    borderRadius: "2px",
+  }),
+  countBadge: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "10px",
+    background: "#f5f3ef",
+    border: "0.5px solid #e8e4db",
+    color: "#8a867a",
+    padding: "2px 8px",
+    borderRadius: "20px",
+  },
+
+  // Transaction rows
+  txRow: {
+    display: "grid",
+    gridTemplateColumns: "10px 1fr auto", // better spacing
+    gap: "16px", // more breathing space
+    alignItems: "center",
+    padding: "14px 1.5rem", // consistent with card
+    borderBottom: "0.5px solid #e8e4db",
+  },
+  txDot: (cat) => ({
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+    background: CAT_COLORS[cat] || "#888780",
+    flexShrink: 0,
+  }),
+  txDesc: { fontSize: "13px", color: "#1a1814", marginBottom: "3px" },
+  txMeta: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    fontSize: "10px",
+    color: "#8a867a",
+  },
+  txCatPill: {
+    background: "#f3f1ec",
+    padding: "1px 6px",
+    borderRadius: "4px",
+    fontSize: "10px",
+    fontWeight: 500,
+    color: "#4a473f",
+    textTransform: "capitalize",
+  },
+  txAmt: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "#1a1814",
+    whiteSpace: "nowrap",
+
+    // 🔥 ADD THESE
+    textAlign: "right",
+    minWidth: "90px",
+  },
+
+  // Pagination
+  pagination: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "14px 1.5rem", // match txRow
+    borderTop: "0.5px solid #e8e4db",
+  },
+  pageInfo: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "11px",
+    color: "#8a867a",
+  },
+  pageButtons: { display: "flex", gap: "4px", alignItems: "center" },
+  pageBtn: (active, disabled) => ({
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "11px",
+    width: "28px",
+    height: "28px",
+    borderRadius: "6px",
+    border: active ? "1px solid #c4611a" : "0.5px solid #e8e4db",
+    background: active ? "#c4611a" : "#ffffff",
+    color: active ? "#ffffff" : disabled ? "#c8c4bb" : "#4a473f",
+    cursor: disabled ? "default" : "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.15s",
+  }),
+  pageDots: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "11px",
+    color: "#8a867a",
+    padding: "0 4px",
+  },
+
+  // Sidebar sections
+  secTitle: (color) => ({
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    fontSize: "11px",
+    fontWeight: 500,
+    color: "#4a473f",
+    marginBottom: "8px",
+  }),
+  secBar: (color) => ({
+    display: "block",
+    width: "3px",
+    height: "12px",
+    background: color,
+    borderRadius: "2px",
+  }),
+  filterGroup: { display: "flex", flexDirection: "column", gap: "5px" },
+  filterLabel: {
+    fontSize: "10px",
+    letterSpacing: "0.8px",
+    textTransform: "uppercase",
+    color: "#8a867a",
+    fontWeight: 500,
+  },
+  select: {
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: "13px",
+    color: "#1a1814",
+    background: "#f5f3ef",
+    border: "0.5px solid #e8e4db",
+    borderRadius: "8px",
+    padding: "8px 28px 8px 10px",
+    outline: "none",
+    cursor: "pointer",
+    width: "100%",
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%238a867a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 10px center",
+    boxSizing: "border-box",
+  },
+  dateInput: {
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: "13px",
+    color: "#1a1814",
+    background: "#f5f3ef",
+    border: "0.5px solid #e8e4db",
+    borderRadius: "8px",
+    padding: "8px 10px",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  dailyAmt: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "20px",
+    fontWeight: 500,
+    color: "#c4611a",
+    marginTop: "8px",
+  },
+  dailySub: { fontSize: "11px", color: "#8a867a", marginTop: "2px" },
+  bkRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 1rem",
+    borderBottom: "0.5px solid #e8e4db",
+  },
+  bkCat: {
+    fontSize: "11px",
+    color: "#1a1814",
+    textTransform: "capitalize",
+    width: "80px",
+    flexShrink: 0,
+  },
+  barWrap: {
+    flex: 1,
+    height: "3px",
+    background: "#f0ece4",
+    borderRadius: "2px",
+    overflow: "hidden",
+  },
+  bkAmt: {
+    fontFamily: "'DM Mono', monospace",
+    fontSize: "10px",
+    color: "#4a473f",
+    width: "64px",
+    textAlign: "right",
+    flexShrink: 0,
+  },
+
+  divider: { height: "0.5px", background: "#e8e4db" },
+  empty: {
+    padding: "2.5rem",
+    textAlign: "center",
+    color: "#8a867a",
+    fontSize: "12px",
+  },
+  loading: {
+    padding: "2rem",
+    textAlign: "center",
+    color: "#8a867a",
+    fontSize: "12px",
+  },
+  errorBox: {
+    padding: "0.75rem 1rem",
+    background: "#fcebeb",
+    border: "0.5px solid #f09595",
+    borderRadius: "8px",
+    color: "#a32d2d",
+    fontSize: "12px",
+  },
 };
 
-function App() {
+function PaginationBar({ page, totalPages, total, pageSize, onChange }) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
+  // Build page number list with ellipsis
+  const pages = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (page > 3) pages.push("…");
+    for (
+      let i = Math.max(2, page - 1);
+      i <= Math.min(totalPages - 1, page + 1);
+      i++
+    )
+      pages.push(i);
+    if (page < totalPages - 2) pages.push("…");
+    pages.push(totalPages);
+  }
+
+  return (
+    <div style={s.pagination}>
+      <span style={s.pageInfo}>
+        {total === 0 ? "0 results" : `${from}–${to} of ${total}`}
+      </span>
+      <div style={s.pageButtons}>
+        {/* Prev */}
+        <button
+          style={s.pageBtn(false, page === 1)}
+          onClick={() => page > 1 && onChange(page - 1)}
+          disabled={page === 1}
+        >
+          ‹
+        </button>
+
+        {pages.map((p, i) =>
+          p === "…" ? (
+            <span key={`d${i}`} style={s.pageDots}>
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              style={s.pageBtn(p === page, false)}
+              onClick={() => onChange(p)}
+            >
+              {p}
+            </button>
+          ),
+        )}
+
+        {/* Next */}
+        <button
+          style={s.pageBtn(false, page === totalPages || totalPages === 0)}
+          onClick={() => page < totalPages && onChange(page + 1)}
+          disabled={page === totalPages || totalPages === 0}
+        >
+          ›
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState("date_desc");
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDate, setSelectedDate] = useState("");
+  const [page, setPage] = useState(1);
 
-  const handleRefresh = () => setRefreshKey((prev) => prev + 1);
-  const { expenses, loading, error } = useExpenses({ category, sort }, refreshKey);
+  const handleRefresh = () => {
+    setRefreshKey((p) => p + 1);
+    setPage(1);
+  };
+  const { expenses, loading, error } = useExpenses(
+    { category, sort },
+    refreshKey,
+  );
+
+  // Reset to page 1 when filters change
+  const handleCategoryChange = (val) => {
+    setCategory(val);
+    setPage(1);
+  };
+  const handleSortChange = (val) => {
+    setSort(val);
+    setPage(1);
+  };
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const now = new Date();
   const monthlyTotal = expenses.reduce((sum, e) => {
     const d = new Date(e.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() ? sum + e.amount : sum;
+    return d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+      ? sum + e.amount
+      : sum;
   }, 0);
+  const avgExpense = expenses.length ? Math.round(total / expenses.length) : 0;
 
-  const catTotals = expenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] || 0) + e.amount; return acc; }, {});
+  const catTotals = expenses.reduce((acc, e) => {
+    acc[e.category] = (acc[e.category] || 0) + e.amount;
+    return acc;
+  }, {});
   const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
   const maxCat = sortedCats[0]?.[1] || 1;
   const topCat = sortedCats[0];
 
   const dailyTotal = expenses
-    .filter((e) => new Date(e.date).toISOString().split("T")[0] === selectedDate || e.date === selectedDate)
+    .filter((e) => {
+      try {
+        return new Date(e.date).toISOString().split("T")[0] === selectedDate;
+      } catch {
+        return e.date === selectedDate;
+      }
+    })
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const dateLabel = now.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const totalPages = Math.max(1, Math.ceil(expenses.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return expenses.slice(start, start + PAGE_SIZE);
+  }, [expenses, page]);
+
+  const dateLabel = now.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
-      <div style={s.shell}>
-
-        <header style={s.header}>
-          <div>
-            <h1 style={s.h1}>Expense Tracker</h1>
-            <p style={s.headerSub}>Personal finance ledger</p>
+      <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@500;600&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet"
+      />
+      <div style={s.page}>
+        {/* Top bar */}
+        <div style={s.topbar}>
+          <div style={s.topbarLeft}>
+            <h1 style={s.logo}>Expense Tracker</h1>
+            <span style={s.logoSub}>Personal finance ledger</span>
           </div>
-          <div style={s.headerDate}>{dateLabel}</div>
-        </header>
-
-        <div style={s.stats}>
-          <div style={s.statCard}>
-            <div style={s.statLabel}>All time</div>
-            <div style={s.statValueAccent}>{fmt(total)}</div>
-            <div style={s.statSub}>{expenses.length} expense{expenses.length !== 1 ? "s" : ""}</div>
-          </div>
-          <div style={s.statCard}>
-            <div style={s.statLabel}>This month</div>
-            <div style={s.statValue}>{fmt(monthlyTotal)}</div>
-            <div style={s.statSub}>{now.toLocaleString("default", { month: "long", year: "numeric" })}</div>
-          </div>
-          <div style={s.statCard}>
-            <div style={s.statLabel}>Top category</div>
-            <div style={{ ...s.statValue, fontSize: "15px", textTransform: "capitalize", letterSpacing: 0 }}>
-              {topCat ? topCat[0] : "—"}
-            </div>
-            <div style={s.statSub}>{topCat ? fmt(topCat[1]) : ""}</div>
-          </div>
+          <div style={s.topbarDate}>{dateLabel}</div>
         </div>
 
-        <ExpenseForm onSuccess={handleRefresh} />
+        <div style={s.body}>
+          {/* ── Sidebar ── */}
+          <aside style={s.sidebar}>
+            {/* Add expense form */}
+            <ExpenseForm onSuccess={handleRefresh} />
 
-        {error && <div style={s.errorBox}>{error}</div>}
+            <div style={s.divider} />
 
-        <div style={s.filtersCard}>
-          <div style={s.filtersRow}>
-            <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Category</label>
-              <select style={s.select} value={category} onChange={(e) => setCategory(e.target.value)}
-                onFocus={(e) => (e.target.style.borderColor = "#c4611a")} onBlur={(e) => (e.target.style.borderColor = "#e8e4db")}>
-                <option value="">All categories</option>
-                {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>)}
-              </select>
+            {/* Filters */}
+            <div>
+              <div style={s.secTitle()}>
+                <span style={s.secBar("#8a867a")} />
+                Filter & sort
+              </div>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+              >
+                <div style={s.filterGroup}>
+                  <label style={s.filterLabel}>Category</label>
+                  <select
+                    style={s.select}
+                    value={category}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                  >
+                    <option value="">All categories</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={s.filterGroup}>
+                  <label style={s.filterLabel}>Sort by</label>
+                  <select
+                    style={s.select}
+                    value={sort}
+                    onChange={(e) => handleSortChange(e.target.value)}
+                  >
+                    <option value="date_desc">Newest first</option>
+                    <option value="date_asc">Oldest first</option>
+                    <option value="amount_desc">Highest amount</option>
+                    <option value="amount_asc">Lowest amount</option>
+                  </select>
+                </div>
+              </div>
             </div>
-            <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Sort by</label>
-              <select style={s.select} value={sort} onChange={(e) => setSort(e.target.value)}
-                onFocus={(e) => (e.target.style.borderColor = "#c4611a")} onBlur={(e) => (e.target.style.borderColor = "#e8e4db")}>
-                <option value="date_desc">Newest first</option>
-                <option value="date_asc">Oldest first</option>
-                <option value="amount_desc">Highest amount</option>
-                <option value="amount_asc">Lowest amount</option>
-              </select>
-            </div>
-          </div>
-        </div>
 
-        <div style={s.listCard}>
-          <div style={s.listHeader}>
-            <div style={s.sectionTitle}><span style={s.sectionBar("#8a867a")} />Transactions</div>
-            <span style={s.countBadge}>{expenses.length}</span>
-          </div>
-          {loading && <div style={s.loading}>Loading…</div>}
-          {!loading && expenses.length === 0 && <div style={s.empty}>No expenses yet — add one above</div>}
-          {!loading && expenses.map((exp, i) => (
-            <div key={exp.id}
-              style={{ ...s.expenseRow, ...(i === expenses.length - 1 ? { borderBottom: "none" } : {}) }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#faf9f6")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-              <div style={s.catDot(exp.category)} />
+            <div style={s.divider} />
+
+            {/* Daily lookup
+            <div>
+              <div style={s.secTitle()}>
+                <span style={s.secBar("#c4611a")} />
+                Daily lookup
+              </div>
+              <input
+                type="date"
+                style={s.dateInput}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+              {selectedDate ? (
+                <>
+                  <div style={s.dailyAmt}>{fmt(dailyTotal)}</div>
+                  <div style={s.dailySub}>on {fmtDate(selectedDate)}</div>
+                </>
+              ) : (
+                <div style={{ ...s.dailySub, marginTop: "6px" }}>
+                  Pick a date to see total
+                </div>
+              )}
+            </div> */}
+
+            <div style={s.divider} />
+
+            {/* By category */}
+            {sortedCats.length > 0 && (
               <div>
-                <div style={s.expDesc}>{exp.description || exp.category}</div>
-                <div style={s.expMeta}>
-                  <span style={s.expCat}>{exp.category}</span>
-                  <span>{fmtDate(exp.date)}</span>
+                <div style={s.secTitle()}>
+                  <span style={s.secBar("#2d6a4f")} />
+                  By category
+                </div>
+                <div style={{ background: "#f5f3ef", border: "0.5px solid #e8e4db", borderRadius: "10px", overflow: "hidden" }}>
+                  {sortedCats.map(([cat, amt], i) => (
+                    <div key={cat} style={{ ...s.bkRow, ...(i === sortedCats.length - 1 ? { borderBottom: "none" } : {}) }}>
+                      <div style={s.bkCat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+                      <div style={s.barWrap}>
+                        <div style={{ height: "100%", borderRadius: "2px", width: `${Math.round((amt / maxCat) * 100)}%`, background: CAT_COLORS[cat] || "#888780", transition: "width 0.4s ease" }} />
+                      </div>
+                      <div style={s.bkAmt}>{fmt(amt)}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div style={s.expAmount}>{fmt(exp.amount)}</div>
+            )}
+          </aside>
+
+          {/* ── Main ── */}
+          <main style={s.content}>
+            {/* Stats */}
+            <div style={s.statsRow}>
+              {[
+                {
+                  label: "All time",
+                  value: fmt(total),
+                  sub: `${expenses.length} expense${expenses.length !== 1 ? "s" : ""}`,
+                  accent: true,
+                },
+                {
+                  label: "This month",
+                  value: fmt(monthlyTotal),
+                  sub: now.toLocaleString("default", {
+                    month: "long",
+                    year: "numeric",
+                  }),
+                },
+                {
+                  label: "Average",
+                  value: fmt(avgExpense),
+                  sub: "per expense",
+                },
+                {
+                  label: "Top category",
+                  value: topCat ? topCat[0] : "—",
+                  sub: topCat ? fmt(topCat[1]) : "",
+                  cap: true,
+                },
+              ].map(({ label, value, sub, accent, cap }) => (
+                <div key={label} style={s.statCard}>
+                  <div style={s.statLabel}>{label}</div>
+                  <div
+                    style={{
+                      ...(accent ? s.statValueAccent : s.statValue),
+                      ...(cap
+                        ? {
+                            textTransform: "capitalize",
+                            fontSize: "14px",
+                            letterSpacing: 0,
+                          }
+                        : {}),
+                    }}
+                  >
+                    {value}
+                  </div>
+                  <div style={s.statSub}>{sub}</div>
+                </div>
+              ))}
             </div>
-          ))}
+
+            {error && <div style={s.errorBox}>{error}</div>}
+
+            {/* Transactions with pagination */}
+            <div style={s.card}>
+              <div style={s.cardHeader}>
+                <div style={s.cardTitle}>
+                  <span style={s.accentBar("#8a867a")} />
+                  Transactions
+                </div>
+                <span style={s.countBadge}>{expenses.length}</span>
+              </div>
+
+              {loading && <div style={s.loading}>Loading…</div>}
+
+              {!loading && expenses.length === 0 && (
+                <div style={s.empty}>
+                  No expenses yet — add one from the sidebar
+                </div>
+              )}
+
+              {!loading &&
+                paginated.map((exp, i) => (
+                  <div
+                    key={exp.id}
+                    style={{
+                      ...s.txRow,
+                      ...(i === paginated.length - 1
+                        ? { borderBottom: "none" }
+                        : {}),
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "#faf9f6")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <div style={s.txDot(exp.category)} />
+                    <div>
+                      <div style={s.txDesc}>
+                        {exp.description || exp.category}
+                      </div>
+                      <div style={s.txMeta}>
+                        <span style={s.txCatPill}>{exp.category}</span>
+                        <span>{fmtDate(exp.date)}</span>
+                      </div>
+                    </div>
+                    <div style={s.txAmt}>{fmt(exp.amount)}</div>
+                  </div>
+                ))}
+
+              {!loading && expenses.length > 0 && (
+                <PaginationBar
+                  page={page}
+                  totalPages={totalPages}
+                  total={expenses.length}
+                  pageSize={PAGE_SIZE}
+                  onChange={setPage}
+                />
+              )}
+            </div>
+
+            {/* CATEGORY BREAKDOWN (FULL WIDTH) */}
+            {/* {sortedCats.length > 0 && (
+              <div style={s.card}>
+                <div style={s.cardHeader}>
+                  <div style={s.cardTitle}>
+                    <span style={s.accentBar("#2d6a4f")} />
+                    Category breakdown
+                  </div>
+                </div>
+
+                <div>
+                  {sortedCats.map(([cat, amt], i) => (
+                    <div
+                      key={cat}
+                      style={{
+                        ...s.bkRow,
+                        ...(i === sortedCats.length - 1
+                          ? { borderBottom: "none" }
+                          : {}),
+                      }}
+                    >
+                      <div style={s.bkCat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </div>
+
+                      <div style={s.barWrap}>
+                        <div
+                          style={{
+                            height: "100%",
+                            borderRadius: "2px",
+                            width: `${Math.round((amt / maxCat) * 100)}%`,
+                            background: CAT_COLORS[cat] || "#888780",
+                            transition: "width 0.4s ease",
+                          }}
+                        />
+                      </div>
+
+                      <div style={s.bkAmt}>{fmt(amt)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )} */}
+          </main>
         </div>
 
-        {sortedCats.length > 0 && (
-          <div style={s.breakdownCard}>
-            <div style={s.breakdownHeaderRow}>
-              <div style={s.sectionTitle}><span style={s.sectionBar("#2d6a4f")} />Category breakdown</div>
-            </div>
-            {sortedCats.map(([cat, amt], i) => (
-              <div key={cat} style={{ ...s.breakdownRow, ...(i === sortedCats.length - 1 ? { borderBottom: "none" } : {}) }}>
-                <div style={s.breakdownCat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
-                <div style={s.barWrap}>
-                  <div style={{ height: "100%", borderRadius: "2px", width: `${Math.round((amt / maxCat) * 100)}%`, background: CAT_COLORS[cat] || "#888780", transition: "width 0.4s ease" }} />
+        {/* 🔥 FULL WIDTH CATEGORY BREAKDOWN */}
+        {/* {sortedCats.length > 0 && (
+          <div style={s.fullWidthSection}>
+            <div style={{ ...s.card, maxWidth: "1200px", margin: "0 auto" }}>
+              <div style={s.cardHeader}>
+                <div style={s.cardTitle}>
+                  <span style={s.accentBar("#2d6a4f")} />
+                  Category breakdown
                 </div>
-                <div style={s.breakdownAmt}>{fmt(amt)}</div>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* <div style={s.dateCard}>
-          <div style={s.sectionTitle}><span style={s.sectionBar("#c4611a")} />Daily lookup</div>
-          <div style={s.dateRow}>
-            <input type="date" style={s.dateInput} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = "#c4611a")} onBlur={(e) => (e.target.style.borderColor = "#e8e4db")} />
-            <div style={s.dailyResult}>{selectedDate ? fmt(dailyTotal) : "—"}</div>
-          </div>
-        </div> */}
+              <div>
+                {sortedCats.map(([cat, amt], i) => (
+                  <div
+                    key={cat}
+                    style={{
+                      ...s.bkRow,
+                      ...(i === sortedCats.length - 1
+                        ? { borderBottom: "none" }
+                        : {}),
+                    }}
+                  >
+                    <div style={s.bkCat}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </div>
 
+                    <div style={s.barWrap}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.round((amt / maxCat) * 100)}%`,
+                          background: CAT_COLORS[cat] || "#888780",
+                          transition: "width 0.4s ease",
+                        }}
+                      />
+                    </div>
+
+                    <div style={s.bkAmt}>{fmt(amt)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )} */}
       </div>
     </>
   );
 }
-
-export default App;
