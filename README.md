@@ -1,78 +1,50 @@
 # 💸 Expense Tracker (Full Stack)
 
-A minimal yet production-minded **Expense Tracker** built with the MERN stack (React + Node.js) and PostgreSQL (via Supabase).
+A minimal yet production-oriented **Expense Tracker** built with **React, Node.js, and PostgreSQL (Supabase)**.
 
-This project focuses on **correctness under real-world conditions**—handling retries, preventing duplicate entries, and ensuring accurate money calculations—rather than just feature completeness.
+The focus of this project is **correctness under real-world conditions**—handling retries, preventing duplicate entries, and ensuring accurate financial data.
 
 ---
 
 ## 🚀 Live Demo
 
-* 🌐 Frontend: **
-* 🔗 Backend API: **
+* 🌐 Frontend: https://expense-tracker-eight-mu-32.vercel.app
+* 🔗 Backend API: https://expense-tracker-pc1w.onrender.com
 
 ---
 
 ## 🧠 Key Highlights
 
-* 🔁 **Idempotent API design** → prevents duplicate expenses on retries
-* 💰 **Accurate money handling** → stored as integers (paise), no floating-point errors
-* 🧩 **Consistent data modeling** → category enforced via ENUM
-* ⚡ **Fast queries** → filtering & sorting handled at DB level
-* 🧪 **Resilient UI** → handles loading, errors, repeated clicks
-
----
-
-## 📦 Tech Stack
-
-### Frontend
-
-* React (Vite)
-* Inline styling (custom design system)
-* Fetch API
-
-### Backend
-
-* Node.js + Express
-* PostgreSQL (via Supabase)
-
-### Database
-
-* PostgreSQL
-* ENUM types for categories
-* Indexed queries for performance
+* 🔁 **Idempotent API design** → prevents duplicate expense creation on retries
+* 💰 **Reliable money handling** → uses PostgreSQL numeric type (no float errors)
+* 🧩 **Strict data modeling** → categories enforced using ENUM
+* ⚡ **Efficient queries** → filtering & sorting handled in DB
+* 🧪 **Resilient UI** → handles loading, retries, and repeated user actions
 
 ---
 
 ## ✨ Features
 
-### Core (Assignment Requirements)
-
 * Add expense (amount, category, description, date)
-* View list of expenses
+* View expense list
 * Filter by category
-* Sort by date (newest first)
-* View total of current list
-
-### Additional Enhancements
-
-* Category-wise breakdown (analytics view)
-* Monthly total calculation
+* Sort by date & amount
+* View total of visible expenses
+* Category-wise breakdown
 * Pagination support
-* Clean UI with dashboard layout
 
 ---
 
-## 🧠 Real-World Considerations (Important)
+## 🧠 Real-World Considerations
 
 ### 🔁 Idempotency (Duplicate Protection)
 
 Each request includes an `idempotency_key`.
 
-* If the same request is retried → **no duplicate entry is created**
-* Ensures correctness under:
+* Backend checks if key already exists before inserting
+* Ensures safe behavior under:
 
-  * multiple button clicks
+  * repeated clicks
   * network retries
   * page refresh
 
@@ -80,26 +52,27 @@ Each request includes an `idempotency_key`.
 
 ### 💰 Money Handling
 
-* Stored as **integer (paise)** in DB
-* Converted to ₹ in UI
+* Stored as **numeric type (rupees)** in PostgreSQL
+* Converted safely using `Number()` in frontend
 
 👉 Avoids floating-point precision issues
 
 ---
 
-### 🗂 Category Consistency
+### ⚡ Query Efficiency
 
-* Database uses **ENUM**
-* Frontend uses **dropdown**
-
-👉 Prevents invalid or inconsistent categories
+* Filtering & sorting handled at SQL level
+* Indexed columns improve performance
 
 ---
 
-### ⚡ Query Efficiency
+### 🧪 Edge Cases Handled
 
-* Filtering and sorting handled in SQL
-* Indexed fields for fast reads
+* Duplicate submissions (idempotency)
+* Invalid inputs (amount validation)
+* Empty states (no expenses)
+* Slow API responses (loading states)
+* Network failures (error handling)
 
 ---
 
@@ -107,11 +80,7 @@ Each request includes an `idempotency_key`.
 
 ### ➕ Create Expense
 
-```http
-POST /api/expenses
-```
-
-**Body:**
+POST `/api/expenses`
 
 ```json
 {
@@ -127,89 +96,27 @@ POST /api/expenses
 
 ### 📥 Get Expenses
 
-```http
-GET /api/expenses?category=food&sort=date_desc
-```
-
-**Query Params:**
-
-* `category` → filter by category
-* `sort` → `date_desc`, `date_asc`, `amount_desc`, `amount_asc`
+GET `/api/expenses?category=food&sort=date_desc`
 
 ---
 
-## 🏗 Project Structure
+## ⚙️ Setup
 
-```
-expense-tracker/
-│
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── services/
-│   │   ├── routes/
-│   │   ├── db/
-│   │   └── app.js
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   ├── api/
-│   │   └── App.jsx
-```
-
----
-
-## ⚙️ Setup Instructions
-
-### 1️⃣ Clone repo
-
-```bash
-git clone <your-repo-link>
-cd expense-tracker
-```
-
----
-
-### 2️⃣ Backend Setup
+### Backend
 
 ```bash
 cd backend
 npm install
-```
-
-Create `.env`:
-
-```env
-DATABASE_URL=your_postgres_url
-PORT=5000
-```
-
-Run:
-
-```bash
 npm run dev
 ```
 
 ---
 
-### 3️⃣ Frontend Setup
+### Frontend
 
 ```bash
 cd frontend
 npm install
-```
-
-Create `.env`:
-
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-Run:
-
-```bash
 npm run dev
 ```
 
@@ -219,64 +126,66 @@ npm run dev
 
 ### Why PostgreSQL?
 
-* Strong data integrity
-* Supports ENUM & constraints
-* Better for structured financial data
-
----
-
-### Why ENUM for category?
-
-* Prevents invalid values
-* Ensures consistency across system
+* Strong consistency guarantees
+* Supports constraints and ENUM
+* Ideal for financial data
 
 ---
 
 ### Why Idempotency?
 
-* Real-world APIs must handle retries safely
-* Prevents duplicate financial entries
+* Prevents duplicate entries in real-world conditions
+* Ensures correctness under unreliable networks
+
+---
+
+### Why keep it minimal?
+
+* Focus on correctness over feature bloat
+* Easier to maintain and extend
 
 ---
 
 ## ⚠️ Trade-offs
 
-* ❌ No authentication (out of scope)
-* ❌ Minimal UI styling (focus on correctness)
-* ❌ No charts/graphs (kept system simple)
+* No authentication (out of scope)
+* Minimal UI complexity
+* No advanced analytics
 
 ---
 
-## 🚫 What I intentionally did NOT build
+## 🚫 What was intentionally NOT built
 
-* Complex analytics dashboard
 * Multi-user system
-* Over-engineered frontend state management
-
-👉 Focus was on **correctness, reliability, and clean design**
-
----
-
-## 🏆 What this project demonstrates
-
-* Thinking beyond CRUD
-* Handling real-world edge cases
-* Clean architecture
-* Strong understanding of data correctness
+* Complex dashboards
+* Over-engineered frontend state
 
 ---
 
-## 📌 Final Note
+## 🏆 What this demonstrates
 
-This project prioritizes:
-
-> **"Building the right things correctly" over building many things imperfectly.**
+* Real-world backend thinking
+* Data correctness & validation
+* Clean full-stack architecture
+* Practical engineering judgment
 
 ---
 
 ## 📬 Submission
 
-* GitHub Repo: (https://github.com/bhandarisiddharth256/Expense-tracker.git)
-* Live App: *[coming soon]*
+* GitHub: https://github.com/bhandarisiddharth256/Expense-tracker.git
+* Live App: https://expense-tracker-eight-mu-32.vercel.app
 
 ---
+
+## 📌 Final Note
+
+> This project prioritizes correctness, reliability, and maintainability over feature complexity.
+
+---
+
+👨‍💻 Author
+
+Siddharth Bhandari
+
+GitHub: https://github.com/bhandarisiddharth256
