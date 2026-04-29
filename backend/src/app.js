@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import pool from "./db/index.js";
-
 dotenv.config();
+
+import expenseRoutes from "./routes/expense.routes.js";
 
 const app = express();
 
@@ -18,15 +19,7 @@ app.get("/health", (req, res) => {
   res.json({ message: "Server is running 🚀" });
 });
 
-app.get("/db-test", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "DB connection failed" });
-  }
-});
+app.use("/api", expenseRoutes);
 
 const PORT = process.env.PORT || 5000;
 
