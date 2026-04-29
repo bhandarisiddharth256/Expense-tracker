@@ -8,8 +8,8 @@ This project focuses on **correctness under real-world conditions**—handling r
 
 ## 🚀 Live Demo
 
-* 🌐 Frontend: *[Add your deployed frontend link here]*
-* 🔗 Backend API: *[Add your backend URL here]*
+* 🌐 Frontend: **
+* 🔗 Backend API: **
 
 ---
 
