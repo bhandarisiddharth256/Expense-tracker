@@ -19,7 +19,7 @@ export const createExpenseService = async ({
   // 2. Check if request already processed (IDEMPOTENCY)
   const existing = await pool.query(
     "SELECT * FROM expenses WHERE idempotency_key = $1",
-    [idempotency_key]
+    [idempotency_key],
   );
 
   if (existing.rows.length > 0) {
@@ -32,7 +32,7 @@ export const createExpenseService = async ({
      (amount, category, description, date, idempotency_key)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [amount, category, description, date, idempotency_key]
+    [amount, category, description, date, idempotency_key],
   );
 
   return result.rows[0];
@@ -42,21 +42,23 @@ export const getExpensesService = async ({ category, sort }) => {
   let query = "SELECT * FROM expenses";
   let values = [];
 
-  // 1. Filtering
   if (category) {
     query += " WHERE category = $1";
     values.push(category);
   }
 
-  // 2. Sorting
-  if (sort === "date_desc") {
-    query += " ORDER BY date DESC";
-  } else {
-    // default sorting
-    query += " ORDER BY date DESC";
+  let orderBy = "date DESC";
+
+  if (sort === "date_asc") {
+    orderBy = "date ASC";
+  } else if (sort === "amount_desc") {
+    orderBy = "amount DESC";
+  } else if (sort === "amount_asc") {
+    orderBy = "amount ASC";
   }
 
-  const result = await pool.query(query, values);
+  query += ` ORDER BY ${orderBy}`;
 
+  const result = await pool.query(query, values);
   return result.rows;
 };

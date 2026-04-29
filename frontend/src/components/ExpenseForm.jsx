@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createExpense } from "../api/expense.api";
+import { CATEGORIES } from "../constants/categories";
 
 // simple unique key generator
 const generateKey = () => crypto.randomUUID();
@@ -60,13 +61,19 @@ const ExpenseForm = ({ onSuccess }) => {
         required
       />
 
-      <input
+      <select
         name="category"
-        placeholder="Category"
         value={form.category}
         onChange={handleChange}
         required
-      />
+      >
+        <option value="">Select category</option>
+        {CATEGORIES.map((cat) => (
+          <option key={cat} value={cat}>
+            {cat}
+          </option>
+        ))}
+      </select>
 
       <input
         name="description"

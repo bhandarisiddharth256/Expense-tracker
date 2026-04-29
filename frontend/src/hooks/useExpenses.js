@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getExpenses } from "../api/expense.api";
 
-export const useExpenses = (filters) => {
+export const useExpenses = (filters, refreshTrigger) => {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,9 +18,10 @@ export const useExpenses = (filters) => {
     }
   };
 
+  // ✅ FIXED DEPENDENCIES
   useEffect(() => {
     fetchExpenses();
-  }, [filters.category, filters.sort]);
+  }, [filters.category, filters.sort, refreshTrigger]);
 
   return { expenses, loading, error };
 };
