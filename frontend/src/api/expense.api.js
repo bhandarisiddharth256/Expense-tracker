@@ -6,3 +6,19 @@ export const getExpenses = async (params = {}) => {
   const res = await fetch(`${API_URL}/api/expenses?${query}`);
   return res.json();
 };
+
+export const createExpense = async (data) => {
+  const res = await fetch(`${API_URL}/api/expenses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to create expense");
+  }
+
+  return res.json();
+};

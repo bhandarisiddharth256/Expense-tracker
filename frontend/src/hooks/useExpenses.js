@@ -20,7 +20,7 @@ export const useExpenses = (filters) => {
 
   useEffect(() => {
     fetchExpenses();
-  }, [filters]);
+  }, [filters.category, filters.sort]);
 
   return { expenses, loading, error };
 };
